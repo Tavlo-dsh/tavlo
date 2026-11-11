@@ -1,0 +1,32 @@
+{
+  "node": {
+    "version": "22.20.0",
+    "targets": {
+      "darwin-arm64": {
+        "url": "https://nodejs.org/dist/v22.20.0/node-v22.20.0-darwin-arm64.tar.gz",
+        "sha256": "cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949",
+        "archiveMember": "node-v22.20.0-darwin-arm64/bin/node"
+      },
+      "darwin-x64": {
+        "url": "https://nodejs.org/dist/v22.20.0/node-v22.20.0-darwin-x64.tar.gz",
+        "sha256": "00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc",
+        "archiveMember": "node-v22.20.0-darwin-x64/bin/node"
+      }
+    }
+  },
+  "bun": {
+    "version": "1.4.0",
+    "targets": {
+      "darwin-arm64": {
+        "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.0/bun-darwin-aarch64.zip",
+        "sha256": "c669e97f6164e1c96e0701748db98dfa77492908cbd8394c7557134a735de381",
+        "archiveMember": "bun-darwin-aarch64/bun"
+      },
+      "darwin-x64": {
+        "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.0/bun-darwin-x64.zip",
+        "sha256": "1d0211b8f1dc991182344687ad15e72ee86f154845a5f7fa477994cd341dd9b0",
+        "archiveMember": "bun-darwin-x64/bun"
+      }
+    }
+  }
+}

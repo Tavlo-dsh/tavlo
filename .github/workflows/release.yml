@@ -1,0 +1,136 @@
+name: release
+
+# 推送 v* 标签：构建 Windows（x64 / arm64）与 macOS 产物，并发布 GitHub Release。
+# 手动触发（workflow_dispatch）：只构建并上传 Actions 产物，不发布 Release。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  meta:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      # 版本号以 tauri.conf.json 为准；发版标签必须与它一致，避免产物名和 Release 对不上
+      - name: Read and check version
+        id: version
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::标签 $GITHUB_REF_NAME 与 tauri.conf.json 版本 $version 不一致"
+            exit 1
+          fi
+
+  windows:
+    name: Windows (${{ matrix.arch }})
+    needs: meta
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      # 产出 dist/windows/Tavlo_<版本>_<arch>-setup.exe 与 Tavlo_<版本>_<arch>_portable.zip
+      - name: Package
+        run: pnpm package:win --arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tavlo_${{ needs.meta.outputs.version }}_windows_${{ matrix.arch }}
+          path: |
+            dist/windows/*.exe
+            dist/windows/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS
+    needs: meta
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package
+        run: pnpm tauri build --bundles app,dmg
+      # .app 是目录，Release 资产必须是文件：压成带版本号的 tar.gz
+      - name: Collect artifacts
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          mkdir -p dist/macos
+          arch=$(uname -m)
+          cp src-tauri/target/release/bundle/dmg/*.dmg dist/macos/
+          tar -czf "dist/macos/Tavlo_${VERSION}_${arch}.app.tar.gz" -C src-tauri/target/release/bundle/macos Tavlo.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tavlo_${{ needs.meta.outputs.version }}_macos
+          path: dist/macos/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [meta, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Render release notes
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          envsubst '${REPO} ${TAG} ${VERSION}' < .github/release-notes.md > release-notes.md
+          (cd release && sha256sum * > SHA256SUMS.txt)
+          ls -l release
+      # 介绍写在 .github/release-notes.md；GitHub 自动生成的变更列表追加在后面
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: Tavlo ${{ needs.meta.outputs.version }}
+          body_path: release-notes.md
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release/*
+          fail_on_unmatched_files: true

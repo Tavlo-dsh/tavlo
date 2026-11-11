@@ -1,0 +1,40 @@
+# 构建产物
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+/dist/
+coverage/
+.vite/
+*.log
+error
+.DS_Store
+
+# 本地对照检出（官方内核 / Electron 形态），只读参考，不进仓库
+.deepseek-harness/
+.anywhere-labs-dsh-desktop/
+anywhere-labs-dsh-desktop/
+.tmp-dsh-ccgui/
+
+# AI 工具的本地状态。共享配置要提交：.claude/settings.json、hooks、commands、skills，.codex/、.agents/
+.claude/settings.local.json
+.claude/worktrees/
+.scratch/
+.zcode/
+
+# .trellis/ 整体提交（spec、research、workspace 日志、scripts、config.yaml、manifest）。
+# 本机身份 .developer、运行时 .runtime/ 由 mini-trellis 自带的 .trellis/.gitignore 忽略，这里不重复。
+
+# Python 缓存（.trellis/scripts、hooks）
+__pycache__/
+*.pyc
+
+# 旧 JS Host 形态遗留（host/、vendor/ 目前不参与构建）
+vendor/runtimes/*
+!vendor/runtimes/.gitkeep
+vendor/runtimes-cache/
+host/dist/
+host/dist-tests/
+host/src/runtime/build-profile.generated.ts
+host/upstream/.smoke-data/
+host/upstream/.app-verify/
+native-ui/assets/*.map

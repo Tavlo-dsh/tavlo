@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "仅本地打包页面（splash / 启动错误页）。dsh web 是 loopback 远程内容，不配置 remote，因此拿不到任何 Tauri IPC。",
+  "local": true,
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

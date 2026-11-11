@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  host:
+    name: Host (typecheck + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Host
+        run: pnpm build:host
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+
+  shell:
+    name: Shell (cargo check + test)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # tauri-build 校验 bundle.resources（../host/dist、../vendor/runtimes），
+      # 所以 cargo check 前必须先有 Host 产物，并 fetch 应用内运行时
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Cache bundled JS runtimes
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/runtimes
+            vendor/runtimes-cache
+          key: runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/runtimes.lock.json') }}
+      - name: Fetch bundled JS runtimes
+        run: pnpm fetch:runtimes
+      - name: Build Host
+        run: pnpm build:host
+      - name: Cargo check
+        run: cargo check --all-targets
+        working-directory: src-tauri
+      - name: Cargo test
+        run: cargo test
+        working-directory: src-tauri

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tavlo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="center">
+    <main class="card wide">
+      <h1 id="title">DSH 启动失败</h1>
+      <p id="detail"></p>
+      <p id="hint" class="hint" hidden></p>
+      <dl id="meta" class="meta"></dl>
+      <pre id="output" hidden></pre>
+      <div class="actions">
+        <button id="logs" type="button">打开日志目录</button>
+        <button id="restart" type="button" class="primary">重新启动</button>
+      </div>
+    </main>
+    <script src="./launch-error.js"></script>
+  </body>
+</html>
