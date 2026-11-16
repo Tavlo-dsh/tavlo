@@ -111,8 +111,10 @@ pub fn cmd_shim_target(shim: &Path) -> Option<PathBuf> {
         let relative = ["%~dp0", "%dp0%"]
             .iter()
             .find_map(|marker| lower.find(marker).map(|index| &token[index + marker.len()..]));
+        // shim 文本里的分隔符固定是 Windows 反斜杠，不能交给宿主的 Path 语义拼接：
+        // macOS / Linux 上 `\` 不是分隔符，会把 `..\store\lib\bin.js` 当成一个文件名。
         let candidate = match relative {
-            Some(rest) => dir.join(rest.trim_start_matches(['\\', '/'])),
+            Some(rest) => join_shim_relative(dir, rest),
             None => PathBuf::from(token),
         };
         if candidate.is_file() {
@@ -122,6 +124,22 @@ pub fn cmd_shim_target(shim: &Path) -> Option<PathBuf> {
     // 兜底：npm 全局安装的固定布局。
     let conventional = dir.join("node_modules").join("@deepseek-ai").join("dsh").join("lib").join("bin.js");
     conventional.is_file().then_some(conventional)
+}
+
+/// 把 shim 里 `%~dp0\..\store\lib\bin.js` 这类相对路径拼到 shim 目录上。
+/// 按 shim 文本自己的 `\` / `/` 分段，不依赖宿主的路径分隔符。
+fn join_shim_relative(dir: &Path, rest: &str) -> PathBuf {
+    let mut candidate = dir.to_path_buf();
+    for part in rest.split(['\\', '/']) {
+        match part {
+            "" | "." => {}
+            ".." => {
+                candidate.pop();
+            }
+            other => candidate.push(other),
+        }
+    }
+    candidate
 }
 
 /// shim 同目录的 node（npm 惯例），否则 PATH 上的 node。
