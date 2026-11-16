@@ -1,14 +1,26 @@
 name: ci
 
+# 平时推送的守门检查：不产出安装包，只保证能编译、测试能过。
+# 发版由 release.yml 负责（推 v* 标签触发）。
 on:
   push:
     branches: [master]
+    # 纯文档改动不跑：.trellis 笔记和 markdown 不影响构建
+    paths-ignore:
+      - "**.md"
+      - ".trellis/**"
   pull_request:
+
+# 同一分支连续推送时，取消还在跑的旧任务，避免排队
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   host:
     name: Host (typecheck + tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -26,37 +38,17 @@ jobs:
         run: pnpm test
 
   shell:
-    name: Shell (cargo check + test)
+    name: Shell (cargo test)
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      # tauri-build 校验 bundle.resources（../host/dist、../vendor/runtimes），
-      # 所以 cargo check 前必须先有 Host 产物，并 fetch 应用内运行时
-      - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Cache bundled JS runtimes
-        uses: actions/cache@v4
-        with:
-          path: |
-            vendor/runtimes
-            vendor/runtimes-cache
-          key: runtimes-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/runtimes.lock.json') }}
-      - name: Fetch bundled JS runtimes
-        run: pnpm fetch:runtimes
-      - name: Build Host
-        run: pnpm build:host
-      - name: Cargo check
-        run: cargo check --all-targets
-        working-directory: src-tauri
+      # 壳只依赖 ../native-ui 静态页（frontendDist），不需要 Host 产物和 vendor/runtimes；
+      # cargo test 已经编译 lib 与 bin，不需要再单独 cargo check
       - name: Cargo test
         run: cargo test
         working-directory: src-tauri
