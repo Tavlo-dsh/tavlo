@@ -2,6 +2,8 @@
 
 Topic-level research notes.
 
+- [Windows 启动延迟测量](./startup-latency.md)
+
 - Write `.trellis/research/<topic>.md` while investigating.
 - A topic may also be a directory: `.trellis/research/<topic>/` for research that
   carries evidence files (captures, CSVs, manifests) next to its notes.

@@ -85,3 +85,66 @@ Topics: [.trellis/spec/project/architecture.md](../../spec/project/architecture.
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: 排查 Tavlo 启动迟缓
+<!-- trellis-session: v=2 fp=03f8de1fcbd37afd -->
+
+**Date**: 2026-11-13
+**Task**: 排查 Tavlo 启动迟缓
+**Branch**: `master`
+
+### Summary
+
+实测 Windows 本机 DSH 0.2.2-rc.1：预热 web 服务就绪约 11 秒，隔离只启用官方 base/web 的临时 profile 约 9–10 秒，版本查询热启动约 0.15 秒；CPU 热点在 DSH ESM 查找、文件系统路径检查和源码编译。NODE_COMPILE_CACHE 未显示收益。补查确认本地远程 MCP 首次连接会被等待，Claude 插件入口顶层静态导入 Agent SDK；二者是尚未独立量化的候选优化。现有 profile 对照未单独隔离插件；没有更改 DSH 或用户 profile。
+Topics: [.trellis/research/startup-latency.md](../../research/startup-latency.md)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 6: 验证 MCP 对启动耗时的影响
+<!-- trellis-session: v=2 fp=9d959b0fe1b71179 -->
+
+**Date**: 2026-11-13
+**Task**: 验证 MCP 对启动耗时的影响
+**Branch**: `master`
+
+### Summary
+
+在相同 DSH 0.2.2-rc.1 和 profile 的独立临时副本上，仅移除一个远程 MCP 配置做 A/B；测试没有修改现有 profile。正常后续启动中，有 MCP 约 10.2–14.4 秒、无 MCP 约 11.9–13.9 秒，没有验证出稳定提速。仅有一次有 MCP 首次启动长尾约 68.6 秒，因未捕获阶段日志不能归因。移除 MCP 会丢失工具能力，不建议用于提速。Claude Agent SDK 按需导入仍待独立 A/B。
+Topics: [.trellis/research/startup-latency.md](../../research/startup-latency.md)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 7: 实现可记忆和重置的关窗驻留托盘选项
+<!-- trellis-session: v=2 fp=abbbf88e3da67519 -->
+
+**Date**: 2026-11-13
+**Task**: 实现可记忆和重置的关窗驻留托盘选项
+**Branch**: `master`
+
+### Summary
+
+托盘菜单新增关闭窗口时驻留托盘开关与恢复默认关闭行为；默认关窗退出，开启后隐藏窗口并保留 DSH，托盘退出仍结束进程。选择自动持久化，保存失败保留原状态并提示日志。安装版使用 app_config_dir，便携版使用 data/settings。pnpm test:shell 29 项通过，cargo build 通过；真实托盘点击尚未人工验收。操作说明已更新 README。
+Topics: [README.md](../../../README.md)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
