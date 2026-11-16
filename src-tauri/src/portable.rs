@@ -32,6 +32,13 @@ pub fn resolve_layout(exe_dir: Option<&Path>, default_log_dir: PathBuf) -> DataL
     }
 }
 
+pub fn resolve_settings_dir(exe_dir: Option<&Path>, default_config_dir: PathBuf) -> PathBuf {
+    if let Some(dir) = exe_dir.filter(|dir| dir.join(PORTABLE_MARKER).is_file()) {
+        return dir.join("data").join("settings");
+    }
+    default_config_dir
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,6 +64,21 @@ mod tests {
         assert!(layout.portable);
         assert_eq!(layout.webview_dir, Some(dir.join("data").join("webview")));
         assert_eq!(layout.log_dir, dir.join("data").join("logs"));
+        assert_eq!(
+            resolve_settings_dir(Some(&dir), PathBuf::from("C:/config")),
+            dir.join("data").join("settings")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn installed_settings_use_the_user_config_directory() {
+        let dir = std::env::temp_dir().join(format!("dsh-settings-installed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(
+            resolve_settings_dir(Some(&dir), PathBuf::from("C:/config")),
+            PathBuf::from("C:/config")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

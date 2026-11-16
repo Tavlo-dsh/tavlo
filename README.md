@@ -29,7 +29,7 @@ Tauri v2 壳（Rust，src-tauri/）
 
 | 目录 | 内容 |
 | --- | --- |
-| `src-tauri/src/` | 壳：`dsh_locate`（定位）、`dsh_process`（启动/Job Object）、`dsh_web`（就绪行/导航策略）、`portable`（数据目录） |
+| `src-tauri/src/` | 壳：`dsh_locate`（定位）、`dsh_process`（启动/Job Object）、`dsh_web`（就绪行/导航策略）、`portable`（数据目录）、`settings`（关闭偏好） |
 | `native-ui/` | 本地页面：启动页、启动失败页 |
 | `scripts/package-windows.mjs` | Windows 打包：安装版 + 便携版 |
 | `src-tauri/legacy/`、`host/`、`vendor/` | 旧的 JS Host 形态（不参与构建，仅供移植功能时参考） |
@@ -40,6 +40,12 @@ Tauri v2 壳（Rust，src-tauri/）
 1. Node.js ≥ 24.9（`@deepseek-ai/dsh` 的要求）
 2. `npm i -g @deepseek-ai/dsh`，或设置环境变量 `DSH_BIN` 指向 `dsh` / `dsh.cmd` / `bin.js`
 3. WebView2 Runtime（Windows 10/11 通常自带；安装版缺失时会自动下载）
+
+## 窗口关闭行为
+
+默认关闭主窗口会退出 Tavlo 并结束 DSH。右键托盘图标，勾选「关闭窗口时驻留托盘」后，关窗只隐藏窗口，DSH 继续运行；点击托盘图标、选择「显示窗口」或再次启动 Tavlo 可恢复原窗口。托盘的「退出」始终退出 Tavlo 并结束 DSH。
+
+选择后自动保存，下次启动继续生效。取消勾选或选择「恢复默认关闭行为」可恢复关窗即退出，重置本身不会退出当前程序。安装版的偏好标记保存在 Tauri 用户配置目录的 `close-to-tray.enabled`（Windows 为 `%APPDATA%\com.tavlo.desktop\`）；便携版在 `data\settings\close-to-tray.enabled`。重置只移除这个标记，不改 DSH 的 profile、会话和其他数据。保存失败时菜单会保留原选择，并提示查看日志。
 
 ## 开发
 

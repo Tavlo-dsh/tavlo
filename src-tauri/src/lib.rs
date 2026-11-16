@@ -12,6 +12,7 @@ mod dsh_process;
 mod dsh_web;
 mod page_theme;
 mod portable;
+mod settings;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
@@ -26,7 +27,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, WindowEvent};
@@ -57,6 +58,8 @@ struct Shell {
     status: Mutex<String>,
     log: Mutex<Option<File>>,
     layout: DataLayout,
+    settings_dir: PathBuf,
+    close_to_tray: Mutex<bool>,
 }
 
 impl Shell {
@@ -105,6 +108,12 @@ pub fn run() {
                 .app_log_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("tavlo-logs"));
             let layout = portable::resolve_layout(exe_dir.as_deref(), default_log_dir);
+            let default_settings_dir = app.path().app_config_dir()?;
+            let settings_dir = portable::resolve_settings_dir(exe_dir.as_deref(), default_settings_dir);
+            let close_to_tray = settings::close_to_tray_enabled(&settings_dir).unwrap_or_else(|error| {
+                eprintln!("tavlo: failed to read settings: {error}");
+                false
+            });
             app.manage(Shell {
                 generation: AtomicU64::new(0),
                 quitting: AtomicBool::new(false),
@@ -114,6 +123,8 @@ pub fn run() {
                 status: Mutex::new(String::new()),
                 log: Mutex::new(None),
                 layout,
+                settings_dir,
+                close_to_tray: Mutex::new(close_to_tray),
             });
 
             create_main_window(app)?;
@@ -193,9 +204,15 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<WebviewWindow> {
     window.set_background_color(Some(background))?;
 
     let close_app = app.handle().clone();
+    let close_window = window.clone();
     window.on_window_event(move |event| {
-        if let WindowEvent::CloseRequested { .. } = event {
-            quit(&close_app);
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            if close_to_tray_enabled(&close_app) {
+                api.prevent_close();
+                let _ = close_window.hide();
+            } else {
+                quit(&close_app);
+            }
         }
     });
     window.show()?;
@@ -271,20 +288,32 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItemBuilder::with_id("show", "显示窗口").build(app)?;
     let restart = MenuItemBuilder::with_id("restart", "重启 DSH").build(app)?;
     let logs = MenuItemBuilder::with_id("logs", "打开日志目录").build(app)?;
+    let close_to_tray = CheckMenuItemBuilder::with_id("close-to-tray", "关闭窗口时驻留托盘")
+        .checked(close_to_tray_enabled(app.handle()))
+        .build(app)?;
+    let reset_close_behavior = MenuItemBuilder::with_id("reset-close-behavior", "恢复默认关闭行为").build(app)?;
     let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
     let menu = MenuBuilder::new(app)
         .items(&[&show, &restart, &logs])
         .item(&PredefinedMenuItem::separator(app)?)
+        .items(&[&close_to_tray, &reset_close_behavior])
+        .item(&PredefinedMenuItem::separator(app)?)
         .item(&quit_item)
         .build()?;
+    let close_to_tray_item = close_to_tray.clone();
     let mut tray = TrayIconBuilder::with_id(MAIN)
         .tooltip("Tavlo")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id().as_ref() {
+        .on_menu_event(move |app, event| match event.id().as_ref() {
             "show" => reveal_main_window(app),
             "restart" => start_dsh(app.clone()),
             "logs" => open_logs(app),
+            "close-to-tray" => {
+                let enabled = !close_to_tray_enabled(app);
+                set_close_to_tray(app, &close_to_tray_item, enabled);
+            }
+            "reset-close-behavior" => set_close_to_tray(app, &close_to_tray_item, false),
             "quit" => quit(app),
             _ => {}
         })
@@ -298,6 +327,31 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     }
     tray.build(app)?;
     Ok(())
+}
+
+fn close_to_tray_enabled<R: tauri::Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<Shell>().close_to_tray.lock().map(|enabled| *enabled).unwrap_or(false)
+}
+
+fn set_close_to_tray<R: tauri::Runtime>(app: &AppHandle<R>, item: &CheckMenuItem<R>, enabled: bool) {
+    let shell = app.state::<Shell>();
+    let previous = close_to_tray_enabled(app);
+    let next = match settings::set_close_to_tray(&shell.settings_dir, enabled) {
+        Ok(()) => enabled,
+        Err(error) => {
+            shell.log_line("shell", &format!("failed to save close-to-tray setting: {error}"));
+            let _ = item.set_text("关闭窗口时驻留托盘（保存失败，请查看日志）");
+            let _ = item.set_checked(previous);
+            return;
+        }
+    };
+    if next != previous {
+        if let Ok(mut current) = shell.close_to_tray.lock() {
+            *current = next;
+        }
+    }
+    let _ = item.set_text("关闭窗口时驻留托盘");
+    let _ = item.set_checked(next);
 }
 
 #[tauri::command]
