@@ -23,9 +23,10 @@ describe('bundled JS runtimes', () => {
     expect(lock.node.version).toBe('22.20.0')
     expect(lock.bun.targets['darwin-arm64'].url).toContain('bun-darwin-aarch64.zip')
     expect(lock.node.targets['darwin-arm64'].archiveMember).toContain('/bin/node')
+    // 断言与平台无关：Windows 上 join 产出反斜杠路径，不能写死 POSIX 分隔符
     const layout = runtimeLayout('/app/vendor/runtimes', false)
-    expect(layout.bun).toBe('/app/vendor/runtimes/bun')
-    expect(layout.node).toBe('/app/vendor/runtimes/node')
+    expect(layout.bun).toBe(join('/app/vendor/runtimes', 'bun'))
+    expect(layout.node).toBe(join('/app/vendor/runtimes', 'node'))
   })
 
   it('skips refetch when stamp matches lock and platform', () => {

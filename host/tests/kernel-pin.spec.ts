@@ -1,18 +1,11 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   LOADABLE_KERNEL_COMMIT,
   LOADABLE_KERNEL_TAG,
   LOADABLE_KERNEL_VERSION,
   assertLoadableProductPin,
-  assertPinInvariants,
   parseKernelPin,
 } from '../src/runtime/kernel-pin.ts'
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
-const pinPath = join(repoRoot, 'docs/kernel-pin.json')
 
 const LATEST_TAG = 'dsh-v0.1.2-alpha.1'
 const LATEST_TAG_COMMIT = 'cd5ef8148158c3a752a658978873241fdf8e2bbc'
@@ -36,28 +29,8 @@ function validPin(overrides: Record<string, unknown> = {}): Record<string, unkno
   }
 }
 
-describe('docs/kernel-pin.json', () => {
-  it('loads the real pin file as a harness-only latest-tag track with a loadable rc.2 kernel', () => {
-    const raw = JSON.parse(readFileSync(pinPath, 'utf8')) as unknown
-    const pin = parseKernelPin(raw)
-    assertPinInvariants(pin)
-    assertLoadableProductPin(pin)
-    expect(pin.repository).toBe('https://github.com/deepseek-ai/deepseek-harness.git')
-    expect(pin.track).toBe('latest-dsh-v-tag')
-    expect(pin.tag).toBe(LOADABLE_KERNEL_TAG)
-    expect(pin.commit).toBe(LOADABLE_KERNEL_COMMIT)
-    expect(pin.sourceVersion).toBe(LOADABLE_KERNEL_VERSION)
-    expect(pin.runtimePackageVersion).toBe(LOADABLE_KERNEL_VERSION)
-    expect(pin.sourceVersion).toBe(pin.runtimePackageVersion)
-    expect(pin.npmPublished).toBe(true)
-    expect(pin.consumption).toBe('npm')
-    expect(pin.latestTag).toBe(LATEST_TAG)
-    expect(pin.latestTagCommit).toBe(LATEST_TAG_COMMIT)
-    expect(pin.tag).not.toBe(pin.latestTag)
-    expect(pin.runtimePackageVersion).not.toBe('0.1.2-alpha.1')
-    expect(pin.commit).not.toBe(LATEST_TAG_COMMIT)
-  })
-
+describe('kernel-pin schema', () => {
+  // 本仓库不再保留 docs/kernel-pin.json（壳不锁定 DSH 版本），只留 schema 拒绝逻辑的断言
   it('rejects the old dual-upstream / missing-gap pin shape', () => {
     expect(() => parseKernelPin({
       repository: 'https://github.com/deepseek-ai/deepseek-harness.git',

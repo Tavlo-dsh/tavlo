@@ -58,7 +58,15 @@ function launchCompiledHost(userDataDir: string, runtime = process.execPath, run
       else if (value) resolve(value)
     }
     child.stdout.setEncoding('utf8')
+    // 收尾时已经 SIGTERM 掉子进程，残留的 stdout 行再写回会 EPIPE；
+    // 忽略该错误，并把写回限制在子进程仍可写的时候，避免变成未捕获异常
+    child.stdin.on('error', () => {})
+    const reply = (id: string, result: Record<string, unknown>) => {
+      if (settled || !child.stdin.writable) return
+      child.stdin.write(encodeMessage({ v: PROTOCOL_VERSION, type: 'res', id, result }))
+    }
     child.stdout.on('data', chunk => {
+      if (settled) return
       buffer += chunk
       let newline = buffer.indexOf('\n')
       while (newline !== -1) {
@@ -71,26 +79,11 @@ function launchCompiledHost(userDataDir: string, runtime = process.execPath, run
             if (message.method === NATIVE_METHODS.schedule) {
               const params = message.params as { url?: string } | undefined
               url = params?.url ?? ''
-              child.stdin.write(encodeMessage({
-                v: PROTOCOL_VERSION,
-                type: 'res',
-                id: message.id,
-                result: { generationId: 'g-launch' },
-              }))
+              reply(message.id, { generationId: 'g-launch' })
             } else if (message.method === NATIVE_METHODS.mount) {
-              child.stdin.write(encodeMessage({
-                v: PROTOCOL_VERSION,
-                type: 'res',
-                id: message.id,
-                result: { ok: true },
-              }))
+              reply(message.id, { ok: true })
             } else {
-              child.stdin.write(encodeMessage({
-                v: PROTOCOL_VERSION,
-                type: 'res',
-                id: message.id,
-                result: { ok: true },
-              }))
+              reply(message.id, { ok: true })
             }
             if (
               !completing
